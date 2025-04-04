@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,17 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Theme colors for our application
+				education: {
+					primary: '#2563EB',  // Blue
+					secondary: '#0F172A', // Dark blue
+					accent: '#F97316',   // Orange
+					background: '#F8FAFC', // Light gray
+					text: '#1E293B',     // Dark gray
+					success: '#10B981',  // Green
+					warning: '#FBBF24',  // Yellow
+					error: '#EF4444',    // Red
 				}
 			},
 			borderRadius: {
@@ -84,11 +96,19 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'score-animation': {
+					'0%': { transform: 'scale(0.8)', opacity: '0' },
+					'100%': { transform: 'scale(1)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'score-animation': 'score-animation 0.5s ease-out forwards'
+			},
+			fontFamily: {
+				'serif': ['Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
 			}
 		}
 	},
