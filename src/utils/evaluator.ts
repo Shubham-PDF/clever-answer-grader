@@ -12,7 +12,7 @@ interface EvaluationResult {
 // Helper function to calculate semantic similarity (simulating embedding-based matching)
 const calculateSemanticSimilarity = (userAnswer: string, idealAnswer: string): number => {
   // In a real implementation, this would use embeddings and cosine similarity
-  // For now, we'll use a simple heuristic based on word overlap
+  // For now, we'll use a simple heuristic based on word overlap and phrase matching
   const userWords = new Set(userAnswer.toLowerCase().split(/\s+/));
   const idealWords = new Set(idealAnswer.toLowerCase().split(/\s+/));
   
@@ -22,17 +22,57 @@ const calculateSemanticSimilarity = (userAnswer: string, idealAnswer: string): n
       commonWords++;
     }
   });
+
+  // Check for phrase matches (bigrams and trigrams)
+  const userLower = userAnswer.toLowerCase();
+  const idealLower = idealAnswer.toLowerCase();
+  const idealPhrases = extractPhrases(idealLower);
+  let phraseMatches = 0;
   
-  return Math.min(0.9, commonWords / idealWords.size);
+  idealPhrases.forEach(phrase => {
+    if (userLower.includes(phrase)) {
+      phraseMatches++;
+    }
+  });
+  
+  // Combine word and phrase matching
+  const wordSimilarity = commonWords / Math.max(1, idealWords.size);
+  const phraseSimilarity = phraseMatches / Math.max(1, idealPhrases.length);
+  
+  return Math.min(0.95, (wordSimilarity * 0.5) + (phraseSimilarity * 0.5));
+};
+
+// Helper function to extract phrases for matching
+const extractPhrases = (text: string): string[] => {
+  const words = text.split(/\s+/);
+  const phrases: string[] = [];
+  
+  // Extract bigrams
+  for (let i = 0; i < words.length - 1; i++) {
+    if (words[i].length > 3 && words[i+1].length > 3) {
+      phrases.push(`${words[i]} ${words[i+1]}`);
+    }
+  }
+  
+  // Extract trigrams
+  for (let i = 0; i < words.length - 2; i++) {
+    if (words[i].length > 3 && words[i+2].length > 3) {
+      phrases.push(`${words[i]} ${words[i+1]} ${words[i+2]}`);
+    }
+  }
+  
+  return phrases;
 };
 
 // Helper function to detect explanation quality
 const detectExplanationQuality = (userAnswer: string): number => {
-  // Check for explanation patterns like "because", "therefore", "this means", etc.
+  // Check for explanation patterns like "because", "therefore", etc.
   const explanationPatterns = [
     "because", "therefore", "thus", "as a result", "consequently",
     "this means", "this leads to", "this results in", "this causes",
-    "for example", "such as", "specifically", "in particular"
+    "for example", "such as", "specifically", "in particular",
+    "defines", "refers to", "is defined as", "can be understood as",
+    "consists of", "comprises", "involves"
   ];
   
   let explanationPoints = 0;
@@ -42,7 +82,36 @@ const detectExplanationQuality = (userAnswer: string): number => {
     }
   });
   
-  return Math.min(0.3, explanationPoints); // Cap at 30% bonus
+  // Check for sentence structure variety (rough heuristic)
+  const sentences = userAnswer.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  const uniqueSentenceStarts = new Set(
+    sentences.map(s => s.trim().split(' ')[0].toLowerCase())
+  ).size;
+  const sentenceVarietyBonus = Math.min(0.1, uniqueSentenceStarts / sentences.length);
+  
+  // Check for answer length (more comprehensive answers get a bonus)
+  const wordCount = userAnswer.split(/\s+/).length;
+  const lengthBonus = Math.min(0.1, wordCount / 200);
+  
+  return Math.min(0.35, explanationPoints + sentenceVarietyBonus + lengthBonus);
+};
+
+// Function to detect specific examples in the answer
+const detectExamples = (userAnswer: string): number => {
+  const examplePatterns = [
+    "for example", "such as", "for instance", "e.g.", "i.e.",
+    "to illustrate", "consider", "let's say", "imagine", 
+    "take the case", "in the case of"
+  ];
+  
+  let examplePoints = 0;
+  examplePatterns.forEach(pattern => {
+    if (userAnswer.toLowerCase().includes(pattern)) {
+      examplePoints += 0.08; // Add 8% for each example pattern
+    }
+  });
+  
+  return Math.min(0.2, examplePoints);
 };
 
 export const evaluateAnswer = (
@@ -68,21 +137,26 @@ export const evaluateAnswer = (
   const maxKeywords = question.keywords.length;
   const keywordRatio = matchedKeywords.length / maxKeywords;
   
-  // Calculate semantic similarity score (Phase 2 enhancement)
+  // Calculate semantic similarity score
   const semanticScore = calculateSemanticSimilarity(userAnswer, question.ideal_answer);
   
-  // Calculate explanation quality bonus (Phase 3 enhancement)
+  // Calculate explanation quality bonus
   const explanationBonus = detectExplanationQuality(userAnswer);
   
+  // Calculate example usage bonus
+  const exampleBonus = detectExamples(userAnswer);
+  
   // Combined score calculation with weights
-  const keywordWeight = 0.7; // 70% weight to keywords
+  const keywordWeight = 0.6; // 60% weight to keywords
   const semanticWeight = 0.2; // 20% weight to semantic similarity
-  const explanationWeight = 0.1; // 10% weight to explanation quality
+  const explanationWeight = 0.15; // 15% weight to explanation quality
+  const exampleWeight = 0.05; // 5% weight to examples
   
   const combinedScore = (
     keywordRatio * keywordWeight +
     semanticScore * semanticWeight +
-    explanationBonus * explanationWeight
+    explanationBonus * explanationWeight +
+    exampleBonus * exampleWeight
   ) * question.marks;
   
   // Round to 1 decimal place
@@ -110,6 +184,16 @@ export const evaluateAnswer = (
       : `${missingKeywords.slice(0, 3).join(", ")}, and others`;
       
     feedback += ` Focus on including concepts like: ${missingTerms}.`;
+  }
+  
+  // Add feedback on explanation style if score is medium
+  if (percentage >= 40 && percentage < 75 && explanationBonus < 0.15) {
+    feedback += " Try to improve your explanation by clearly defining terms and showing relationships between concepts.";
+  }
+  
+  // Add feedback on examples if none were detected
+  if (exampleBonus < 0.05 && percentage < 90) {
+    feedback += " Consider adding examples to illustrate your explanation.";
   }
   
   return {

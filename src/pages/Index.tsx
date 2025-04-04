@@ -7,13 +7,16 @@ import AnswerInput from '@/components/AnswerInput';
 import EvaluationResult from '@/components/EvaluationResult';
 import { evaluateAnswer } from '@/utils/evaluator';
 import { questions, QuestionData } from '@/data/questions';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { Brain, BookOpen } from 'lucide-react';
 
 const Index = () => {
   const [selectedSubject, setSelectedSubject] = useState<'OS' | 'CN' | 'DSA' | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationResult, setEvaluationResult] = useState<any>(null);
+  const [questionsAnswered, setQuestionsAnswered] = useState(0);
+  const [averageScore, setAverageScore] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -42,6 +45,13 @@ const Index = () => {
       try {
         const result = evaluateAnswer(currentQuestion, answer);
         setEvaluationResult(result);
+        
+        // Update statistics
+        setQuestionsAnswered(prev => prev + 1);
+        setAverageScore(prev => {
+          const total = prev * (questionsAnswered) + result.percentage;
+          return Math.round(total / (questionsAnswered + 1));
+        });
         
         // Display toast based on score
         if (result.percentage >= 80) {
@@ -73,7 +83,7 @@ const Index = () => {
       } finally {
         setIsEvaluating(false);
       }
-    }, 1000);
+    }, 1500);
   };
 
   const handleNewQuestion = () => {
@@ -109,23 +119,44 @@ const Index = () => {
             Answer subjective questions and get instant feedback on your understanding
           </p>
           
+          {questionsAnswered > 0 && (
+            <div className="flex justify-center mb-6">
+              <div className="bg-white rounded-lg shadow-sm px-6 py-3 flex items-center space-x-8">
+                <div className="flex items-center">
+                  <BookOpen className="h-5 w-5 text-education-primary mr-2" />
+                  <div>
+                    <div className="text-sm text-gray-500">Questions Answered</div>
+                    <div className="font-semibold text-lg">{questionsAnswered}</div>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <Brain className="h-5 w-5 text-education-primary mr-2" />
+                  <div>
+                    <div className="text-sm text-gray-500">Average Score</div>
+                    <div className="font-semibold text-lg">{averageScore}%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <SubjectSelector 
             selectedSubject={selectedSubject} 
             onSubjectSelect={handleSubjectSelect} 
           />
           
           {currentQuestion && (
-            <>
+            <div className="mt-6 animate-fade-in">
               <QuestionCard question={currentQuestion} />
               <AnswerInput 
                 onSubmit={handleAnswerSubmit} 
                 isEvaluating={isEvaluating} 
               />
-            </>
+            </div>
           )}
           
           {evaluationResult && (
-            <>
+            <div className="mt-6 animate-fade-in">
               <EvaluationResult 
                 score={evaluationResult.score}
                 maxScore={currentQuestion?.marks || 10}
@@ -143,7 +174,7 @@ const Index = () => {
                   Try Another Question
                 </button>
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>

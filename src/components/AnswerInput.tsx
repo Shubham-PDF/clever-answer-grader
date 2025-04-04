@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, HelpCircle, Sparkles } from 'lucide-react';
+import { Send, HelpCircle, Sparkles, Brain } from 'lucide-react';
 import { 
   Tooltip,
   TooltipContent,
@@ -19,6 +19,7 @@ const AnswerInput: React.FC<AnswerInputProps> = ({ onSubmit, isEvaluating }) => 
   const [answer, setAnswer] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
+  const [showWordSuggestions, setShowWordSuggestions] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -26,11 +27,15 @@ const AnswerInput: React.FC<AnswerInputProps> = ({ onSubmit, isEvaluating }) => 
     const words = answer.trim() ? answer.trim().split(/\s+/).length : 0;
     setWordCount(words);
     setCharCount(answer.length);
+    
+    // Auto-show suggestions for short answers
+    setShowWordSuggestions(words > 0 && words < 30);
   }, [answer]);
 
   const handleSubmit = () => {
     if (answer.trim()) {
       onSubmit(answer.trim());
+      // Don't clear the answer so the user can see what they submitted
     }
   };
 
@@ -48,11 +53,22 @@ const AnswerInput: React.FC<AnswerInputProps> = ({ onSubmit, isEvaluating }) => 
     "Connect different concepts to show understanding of relationships"
   ];
 
+  const handleFocusTextarea = () => {
+    textareaRef.current?.focus();
+  };
+
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between mb-2">
-        <label htmlFor="answer" className="block text-sm font-medium text-gray-700">
-          Your Answer
+        <label 
+          htmlFor="answer" 
+          className="block text-sm font-medium text-gray-700 cursor-pointer"
+          onClick={handleFocusTextarea}
+        >
+          <div className="flex items-center">
+            <Brain className="h-4 w-4 mr-1 text-education-primary" />
+            Your Answer
+          </div>
         </label>
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-500">
@@ -84,14 +100,14 @@ const AnswerInput: React.FC<AnswerInputProps> = ({ onSubmit, isEvaluating }) => 
         value={answer}
         onChange={(e) => setAnswer(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="min-h-[200px] text-base resize-y"
+        className="min-h-[200px] text-base resize-y transition-all focus:border-education-primary focus:ring-1 focus:ring-education-primary"
       />
       <div className="mt-4 flex items-center justify-between">
         <span className="text-xs text-gray-500">
           Press Ctrl+Enter to submit
         </span>
         <div className="flex gap-2">
-          {wordCount < 30 && answer.trim() && (
+          {showWordSuggestions && (
             <div className="flex items-center text-amber-600 text-xs mr-2">
               <Sparkles className="h-3 w-3 mr-1" />
               Consider writing a more thorough answer
@@ -100,10 +116,13 @@ const AnswerInput: React.FC<AnswerInputProps> = ({ onSubmit, isEvaluating }) => 
           <Button 
             onClick={handleSubmit} 
             disabled={!answer.trim() || isEvaluating}
-            className="bg-education-primary hover:bg-education-primary/90"
+            className="bg-education-primary hover:bg-education-primary/90 transition-all"
           >
             {isEvaluating ? (
-              <>Evaluating...</>
+              <div className="flex items-center">
+                <div className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                Evaluating...
+              </div>
             ) : (
               <>
                 <Send className="mr-1 h-4 w-4" /> Evaluate Answer
